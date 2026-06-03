@@ -1,0 +1,13 @@
+
+<h1>Bubble Road</h1>
+<a href='/create'>Create Post</a> |
+<a href='/login'>Login</a> |
+<a href='/register'>Register</a> |
+<a href='/logout'>Logout</a>
+<hr>
+{% for p in posts %}
+<h3><a href='/post/{{p[0]}}'>{{p[1]}}</a></h3>
+<p>By {{p[3]}} | Votes: {{p[4]}}</p>
+<a href='/vote/{{p[0]}}'>⬆ Vote</a>
+<hr>
+{% endfor %}
