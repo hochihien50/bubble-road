@@ -17,13 +17,13 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # =========================
 def get_db():
     if not DATABASE_URL:
-        print("❌ DATABASE_URL missing")
+        print("❌ DATABASE_URL is None")
         return None
 
     try:
         return psycopg2.connect(DATABASE_URL)
     except Exception as e:
-        print("❌ DB CONNECT ERROR:", e)
+        print("❌ DB ERROR:", e)
         return None
 
 
