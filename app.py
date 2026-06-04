@@ -7,23 +7,28 @@ app = Flask(__name__)
 app.secret_key = "change-me"
 
 # =========================
-# DATABASE CONFIG
+# DATABASE URL (Render ENV)
 # =========================
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
+# =========================
+# SAFE DB CONNECTION
+# =========================
 def get_db():
-    """
-    Safe DB connection (không crash server nếu thiếu env)
-    """
     if not DATABASE_URL:
-        print("❌ DATABASE_URL is missing")
+        print("❌ DATABASE_URL missing")
         return None
-    return psycopg2.connect(DATABASE_URL)
+
+    try:
+        return psycopg2.connect(DATABASE_URL)
+    except Exception as e:
+        print("❌ DB CONNECT ERROR:", e)
+        return None
 
 
 # =========================
-# INIT DB (SAFE)
+# INIT DB (SAFE + NO CRASH)
 # =========================
 def init_db():
     con = get_db()
@@ -84,8 +89,9 @@ def init_db():
     con.close()
 
 
-# run init safely
-init_db()
+# ⚠️ IMPORTANT: chỉ chạy khi server đã lên
+# KHÔNG để crash lúc import
+# init_db()  ❌ (đã bỏ)
 
 
 # =========================
@@ -129,7 +135,6 @@ def register():
             )
             con.commit()
         except:
-            con.close()
             return "User exists"
 
         con.close()
@@ -139,7 +144,7 @@ def register():
 
 
 # =========================
-# LOGIN (bcrypt check)
+# LOGIN
 # =========================
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -152,6 +157,7 @@ def login():
             return "DB error"
 
         cur = con.cursor()
+
         cur.execute("SELECT password FROM users WHERE username=%s", (u,))
         data = cur.fetchone()
         con.close()
@@ -197,7 +203,7 @@ def create():
     )
 
     cur.execute(
-        "UPDATE users SET xp=xp+10 WHERE username=%s",
+        "UPDATE users SET xp = xp + 10 WHERE username=%s",
         (session["user"],)
     )
 
@@ -208,7 +214,7 @@ def create():
 
 
 # =========================
-# VOTE (ANTI SPAM)
+# VOTE (ANTI-SPAM)
 # =========================
 @app.route("/vote/<int:pid>")
 def vote(pid):
@@ -238,7 +244,7 @@ def vote(pid):
     )
 
     cur.execute(
-        "UPDATE posts SET votes=votes+1 WHERE id=%s",
+        "UPDATE posts SET votes = votes + 1 WHERE id=%s",
         (pid,)
     )
 
@@ -249,7 +255,7 @@ def vote(pid):
 
 
 # =========================
-# REPORT
+# REPORT SYSTEM
 # =========================
 @app.route("/report", methods=["POST"])
 def report():
@@ -279,27 +285,7 @@ def report():
 
 
 # =========================
-# ADMIN PANEL
-# =========================
-@app.route("/admin")
-def admin():
-    if session.get("user") != "admin":
-        return "No access"
-
-    con = get_db()
-    if not con:
-        return "DB error"
-
-    cur = con.cursor()
-    cur.execute("SELECT * FROM reports ORDER BY id DESC")
-    reports = cur.fetchall()
-    con.close()
-
-    return render_template("admin.html", reports=reports)
-
-
-# =========================
-# POST + COMMENTS
+# POST DETAIL + COMMENTS
 # =========================
 @app.route("/post/<int:pid>", methods=["GET", "POST"])
 def post(pid):
@@ -316,7 +302,7 @@ def post(pid):
         )
 
         cur.execute(
-            "UPDATE users SET xp=xp+2 WHERE username=%s",
+            "UPDATE users SET xp = xp + 2 WHERE username=%s",
             (session["user"],)
         )
 
@@ -339,8 +325,31 @@ def post(pid):
 
 
 # =========================
-# RUN
+# ADMIN PANEL
+# =========================
+@app.route("/admin")
+def admin():
+    if session.get("user") != "admin":
+        return "No access"
+
+    con = get_db()
+    if not con:
+        return "DB error"
+
+    cur = con.cursor()
+
+    cur.execute("SELECT * FROM reports ORDER BY id DESC")
+    reports = cur.fetchall()
+
+    con.close()
+
+    return render_template("admin.html", reports=reports)
+
+
+# =========================
+# RUN (LOCAL ONLY)
 # =========================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    # CHỈ chạy local
+    init_db()
+    app.run(host="0.0.0.0", port=5000)
