@@ -13,25 +13,14 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # DB CONNECT
 # ======================
 def get_db():
-    if not DATABASE_URL:
-        print("❌ Missing DATABASE_URL")
-        return None
-
-    try:
-        return psycopg2.connect(DATABASE_URL)
-    except Exception as e:
-        print("❌ DB ERROR:", e)
-        return None
+    return psycopg2.connect(DATABASE_URL)
 
 
 # ======================
-# INIT DB (SAFE)
+# INIT DB SAFE
 # ======================
 def init_db():
     con = get_db()
-    if not con:
-        return
-
     cur = con.cursor()
 
     cur.execute("""
@@ -40,6 +29,7 @@ def init_db():
         username TEXT UNIQUE,
         password TEXT,
         xp INTEGER DEFAULT 0,
+        level INTEGER DEFAULT 1,
         role TEXT DEFAULT 'user'
     )
     """)
@@ -63,6 +53,7 @@ def init_db():
     )
     """)
 
+    # chống vote spam
     cur.execute("""
     CREATE TABLE IF NOT EXISTS votes (
         id SERIAL PRIMARY KEY,
@@ -72,22 +63,12 @@ def init_db():
     )
     """)
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS reports (
-        id SERIAL PRIMARY KEY,
-        reporter TEXT,
-        target_type TEXT,
-        target_id INTEGER,
-        reason TEXT
-    )
-    """)
-
     con.commit()
     con.close()
 
 
-# ❗ KHÔNG INIT NGAY KHI IMPORT (tránh crash Render)
-# init_db()
+# chạy 1 lần an toàn
+init_db()
 
 
 # ======================
@@ -96,14 +77,12 @@ def init_db():
 @app.route("/")
 def home():
     con = get_db()
-    if not con:
-        return "DB ERROR"
-
     cur = con.cursor()
+
     cur.execute("SELECT * FROM posts ORDER BY id DESC")
     posts = cur.fetchall()
-    con.close()
 
+    con.close()
     return render_template("index.html", posts=posts, user=session.get("user"))
 
 
@@ -171,7 +150,7 @@ def logout():
 
 
 # ======================
-# CREATE POST (FIX METHOD NOT ALLOWED)
+# CREATE POST (FIX RELOAD SPAM)
 # ======================
 @app.route("/create", methods=["GET", "POST"])
 def create():
@@ -191,20 +170,21 @@ def create():
         )
 
         cur.execute(
-            "UPDATE users SET xp=xp+10 WHERE username=%s",
+            "UPDATE users SET xp = xp + 10 WHERE username=%s",
             (session["user"],)
         )
 
         con.commit()
         con.close()
 
+        # 🔥 PRG FIX (chống F5 spam)
         return redirect("/")
 
     return render_template("create.html")
 
 
 # ======================
-# POST DETAIL + COMMENT
+# POST DETAIL + COMMENT (FIX RELOAD SPAM)
 # ======================
 @app.route("/post/<int:pid>", methods=["GET", "POST"])
 def post(pid):
@@ -218,11 +198,14 @@ def post(pid):
         )
 
         cur.execute(
-            "UPDATE users SET xp=xp+2 WHERE username=%s",
+            "UPDATE users SET xp = xp + 2 WHERE username=%s",
             (session["user"],)
         )
 
         con.commit()
+
+        # 🔥 PRG FIX
+        return redirect(f"/post/{pid}")
 
     cur.execute("SELECT * FROM posts WHERE id=%s", (pid,))
     post_data = cur.fetchone()
@@ -232,13 +215,18 @@ def post(pid):
 
     con.close()
 
-    return render_template("post.html", post=post_data, comments=comments, user=session.get("user"))
+    return render_template(
+        "post.html",
+        post=post_data,
+        comments=comments,
+        user=session.get("user")
+    )
 
 
 # ======================
-# VOTE (ANTI SPAM)
+# VOTE (ANTI SPAM + NO RELOAD EXPLOIT)
 # ======================
-@app.route("/vote/<int:pid>")
+@app.route("/vote/<int:pid>", methods=["POST"])
 def vote(pid):
     if "user" not in session:
         return redirect("/login")
@@ -246,22 +234,32 @@ def vote(pid):
     con = get_db()
     cur = con.cursor()
 
+    # check spam vote
     cur.execute(
         "SELECT 1 FROM votes WHERE username=%s AND post_id=%s",
         (session["user"], pid)
     )
 
     if cur.fetchone():
-        return "Already voted"
+        con.close()
+        return redirect("/")
 
+    # insert vote log
     cur.execute(
         "INSERT INTO votes(username,post_id) VALUES(%s,%s)",
         (session["user"], pid)
     )
 
+    # update post votes
     cur.execute(
-        "UPDATE posts SET votes=votes+1 WHERE id=%s",
+        "UPDATE posts SET votes = votes + 1 WHERE id=%s",
         (pid,)
+    )
+
+    # XP nhẹ
+    cur.execute(
+        "UPDATE users SET xp = xp + 1 WHERE username=%s",
+        (session["user"],)
     )
 
     con.commit()
@@ -271,54 +269,39 @@ def vote(pid):
 
 
 # ======================
-# REPORT
+# PROFILE SIMPLE
 # ======================
-@app.route("/report", methods=["POST"])
-def report():
-    if "user" not in session:
-        return redirect("/login")
-
+@app.route("/profile/<user>")
+def profile(user):
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("""
-        INSERT INTO reports(reporter,target_type,target_id,reason)
-        VALUES(%s,%s,%s,%s)
-    """, (
-        session["user"],
-        request.form["type"],
-        request.form["id"],
-        request.form["reason"]
-    ))
+    cur.execute("SELECT xp, level FROM users WHERE username=%s", (user,))
+    data = cur.fetchone()
 
-    con.commit()
     con.close()
 
-    return "Reported"
+    return render_template("profile.html", user=user, data=data)
 
 
 # ======================
-# ADMIN
+# LEADERBOARD
 # ======================
-@app.route("/admin")
-def admin():
-    if session.get("user") != "admin":
-        return "No access"
-
+@app.route("/leaderboard")
+def leaderboard():
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("SELECT * FROM reports ORDER BY id DESC")
-    reports = cur.fetchall()
+    cur.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 10")
+    users = cur.fetchall()
 
     con.close()
 
-    return render_template("admin.html", reports=reports)
+    return render_template("leaderboard.html", users=users)
 
 
 # ======================
-# START APP
+# START
 # ======================
 if __name__ == "__main__":
-    init_db()
     app.run(host="0.0.0.0", port=5000)
