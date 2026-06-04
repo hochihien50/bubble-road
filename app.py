@@ -6,28 +6,108 @@ import bcrypt
 app = Flask(__name__)
 app.secret_key = "change-me"
 
+# =========================
+# DATABASE CONFIG
+# =========================
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 def get_db():
+    """
+    Safe DB connection (không crash server nếu thiếu env)
+    """
+    if not DATABASE_URL:
+        print("❌ DATABASE_URL is missing")
+        return None
     return psycopg2.connect(DATABASE_URL)
 
 
-# ======================
-# INIT DB (optional)
-# ======================
+# =========================
+# INIT DB (SAFE)
+# =========================
 def init_db():
     con = get_db()
+    if not con:
+        return
+
     cur = con.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE,
+        password TEXT,
+        xp INTEGER DEFAULT 0,
+        role TEXT DEFAULT 'user'
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS posts (
+        id SERIAL PRIMARY KEY,
+        title TEXT,
+        content TEXT,
+        author TEXT,
+        votes INTEGER DEFAULT 0
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS comments (
+        id SERIAL PRIMARY KEY,
+        post_id INTEGER,
+        author TEXT,
+        content TEXT
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS votes (
+        id SERIAL PRIMARY KEY,
+        username TEXT,
+        post_id INTEGER,
+        UNIQUE(username, post_id)
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS reports (
+        id SERIAL PRIMARY KEY,
+        reporter TEXT,
+        target_type TEXT,
+        target_id INTEGER,
+        reason TEXT
+    )
+    """)
+
     con.commit()
     con.close()
 
 
+# run init safely
 init_db()
 
-# ======================
+
+# =========================
+# HOME
+# =========================
+@app.route("/")
+def home():
+    con = get_db()
+    if not con:
+        return "DB not connected"
+
+    cur = con.cursor()
+    cur.execute("SELECT * FROM posts ORDER BY id DESC")
+    posts = cur.fetchall()
+    con.close()
+
+    return render_template("index.html", posts=posts, user=session.get("user"))
+
+
+# =========================
 # REGISTER (bcrypt)
-# ======================
+# =========================
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -37,6 +117,9 @@ def register():
         hashed = bcrypt.hashpw(p.encode(), bcrypt.gensalt())
 
         con = get_db()
+        if not con:
+            return "DB error"
+
         cur = con.cursor()
 
         try:
@@ -46,6 +129,7 @@ def register():
             )
             con.commit()
         except:
+            con.close()
             return "User exists"
 
         con.close()
@@ -54,9 +138,9 @@ def register():
     return render_template("register.html")
 
 
-# ======================
-# LOGIN
-# ======================
+# =========================
+# LOGIN (bcrypt check)
+# =========================
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -64,8 +148,10 @@ def login():
         p = request.form["password"]
 
         con = get_db()
-        cur = con.cursor()
+        if not con:
+            return "DB error"
 
+        cur = con.cursor()
         cur.execute("SELECT password FROM users WHERE username=%s", (u,))
         data = cur.fetchone()
         con.close()
@@ -79,44 +165,18 @@ def login():
     return render_template("login.html")
 
 
-# ======================
-# PROFILE
-# ======================
-@app.route("/profile/<user>")
-def profile(user):
-    con = get_db()
-    cur = con.cursor()
-
-    cur.execute("SELECT xp, role FROM users WHERE username=%s", (user,))
-    u = cur.fetchone()
-
-    cur.execute("SELECT COUNT(*) FROM posts WHERE author=%s", (user,))
-    posts = cur.fetchone()
-
-    con.close()
-
-    return render_template("profile.html", user=user, data=u, posts=posts)
+# =========================
+# LOGOUT
+# =========================
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
 
 
-# ======================
-# LEADERBOARD
-# ======================
-@app.route("/leaderboard")
-def leaderboard():
-    con = get_db()
-    cur = con.cursor()
-
-    cur.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 10")
-    users = cur.fetchall()
-
-    con.close()
-
-    return render_template("leaderboard.html", users=users)
-
-
-# ======================
+# =========================
 # CREATE POST
-# ======================
+# =========================
 @app.route("/create", methods=["POST"])
 def create():
     if "user" not in session:
@@ -126,6 +186,9 @@ def create():
     content = request.form["content"]
 
     con = get_db()
+    if not con:
+        return "DB error"
+
     cur = con.cursor()
 
     cur.execute(
@@ -144,9 +207,9 @@ def create():
     return redirect("/")
 
 
-# ======================
+# =========================
 # VOTE (ANTI SPAM)
-# ======================
+# =========================
 @app.route("/vote/<int:pid>")
 def vote(pid):
     if "user" not in session:
@@ -155,6 +218,9 @@ def vote(pid):
     u = session["user"]
 
     con = get_db()
+    if not con:
+        return "DB error"
+
     cur = con.cursor()
 
     cur.execute(
@@ -163,6 +229,7 @@ def vote(pid):
     )
 
     if cur.fetchone():
+        con.close()
         return "Already voted"
 
     cur.execute(
@@ -181,25 +248,29 @@ def vote(pid):
     return redirect("/")
 
 
-# ======================
-# REPORT SYSTEM
-# ======================
+# =========================
+# REPORT
+# =========================
 @app.route("/report", methods=["POST"])
 def report():
     if "user" not in session:
         return redirect("/login")
 
-    target_type = request.form["type"]
-    target_id = request.form["id"]
-    reason = request.form["reason"]
-
     con = get_db()
+    if not con:
+        return "DB error"
+
     cur = con.cursor()
 
     cur.execute("""
         INSERT INTO reports(reporter,target_type,target_id,reason)
         VALUES(%s,%s,%s,%s)
-    """, (session["user"], target_type, target_id, reason))
+    """, (
+        session["user"],
+        request.form["type"],
+        request.form["id"],
+        request.form["reason"]
+    ))
 
     con.commit()
     con.close()
@@ -207,40 +278,69 @@ def report():
     return "Reported"
 
 
-# ======================
+# =========================
 # ADMIN PANEL
-# ======================
+# =========================
 @app.route("/admin")
 def admin():
     if session.get("user") != "admin":
         return "No access"
 
     con = get_db()
-    cur = con.cursor()
+    if not con:
+        return "DB error"
 
+    cur = con.cursor()
     cur.execute("SELECT * FROM reports ORDER BY id DESC")
     reports = cur.fetchall()
-
     con.close()
 
     return render_template("admin.html", reports=reports)
 
 
-# ======================
-# HOME
-# ======================
-@app.route("/")
-def home():
+# =========================
+# POST + COMMENTS
+# =========================
+@app.route("/post/<int:pid>", methods=["GET", "POST"])
+def post(pid):
     con = get_db()
+    if not con:
+        return "DB error"
+
     cur = con.cursor()
 
-    cur.execute("SELECT * FROM posts ORDER BY id DESC")
-    posts = cur.fetchall()
+    if request.method == "POST" and "user" in session:
+        cur.execute(
+            "INSERT INTO comments(post_id,author,content) VALUES(%s,%s,%s)",
+            (pid, session["user"], request.form["content"])
+        )
+
+        cur.execute(
+            "UPDATE users SET xp=xp+2 WHERE username=%s",
+            (session["user"],)
+        )
+
+        con.commit()
+
+    cur.execute("SELECT * FROM posts WHERE id=%s", (pid,))
+    post_data = cur.fetchone()
+
+    cur.execute("SELECT * FROM comments WHERE post_id=%s", (pid,))
+    comments = cur.fetchall()
 
     con.close()
 
-    return render_template("index.html", posts=posts, user=session.get("user"))
+    return render_template(
+        "post.html",
+        post=post_data,
+        comments=comments,
+        user=session.get("user")
+    )
 
 
+# =========================
+# RUN
+# =========================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
