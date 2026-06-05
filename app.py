@@ -201,15 +201,19 @@ def create():
         cur = con.cursor()
 
         cur.execute(
-            "INSERT INTO posts(title,content,author,image) VALUES(%s,%s,%s,%s)",
-            (title, content, session["user"], image_url)
-        )
+    "INSERT INTO posts(title,content,author,image) VALUES(%s,%s,%s,%s)",
+    (title, content, session["user"], image_url)
+)
 
-        con.commit()
-        con.close()
+cur.execute(
+    "UPDATE users SET xp = xp + 5 WHERE username=%s",
+    (session["user"],)
+)
 
-        return redirect("/")
+con.commit()
+con.close()
 
+return redirect("/")
     return render_template("create.html")
 
 
