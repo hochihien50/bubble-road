@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaderboard</title>
+</head>
+<body>
+
+<h1>🏆 Top XP</h1>
+
+<a href="/">🏠 Home</a>
+
+<hr>
+
+{% for u in users %}
+
+<div style="border:1px solid #ccc;padding:10px;margin:10px;">
+    <h3>{{ loop.index }}. {{ u[0] }}</h3>
+    <p>XP: {{ u[1] }}</p>
+</div>
+
+{% endfor %}
+
+</body>
+</html>
