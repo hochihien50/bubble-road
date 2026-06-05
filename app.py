@@ -13,10 +13,20 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-supabase = None
-if SUPABASE_URL and SUPABASE_KEY:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+print("SUPABASE_URL =", SUPABASE_URL)
+print("SUPABASE_KEY EXISTS =", bool(SUPABASE_KEY))
 
+supabase = None
+
+try:
+    if SUPABASE_URL and SUPABASE_KEY:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("SUPABASE CONNECTED")
+    else:
+        print("SUPABASE NOT CONFIGURED")
+except Exception as e:
+    print("SUPABASE ERROR:", e)
+    supabase = None
 
 # ======================
 # DB CONNECT
@@ -303,31 +313,37 @@ def upload_avatar():
     if "user" not in session:
         return redirect("/login")
 
+    if supabase is None:
+        return "SUPABASE NOT CONNECTED"
+
     file = request.files["avatar"]
 
     filename = f"avatar_{session['user']}_{uuid.uuid4()}.png"
 
-    supabase.storage.from_("avatars").upload(
-        filename,
-        file.read(),
-        {"content-type": file.content_type}
-    )
+    try:
+        supabase.storage.from_("avatars").upload(
+            filename,
+            file.read(),
+            {"content-type": file.content_type}
+        )
 
-    url = supabase.storage.from_("avatars").get_public_url(filename)
+        url = supabase.storage.from_("avatars").get_public_url(filename)
 
-    con = get_db()
-    cur = con.cursor()
+        con = get_db()
+        cur = con.cursor()
 
-    cur.execute(
-        "UPDATE users SET avatar=%s WHERE username=%s",
-        (url, session["user"])
-    )
+        cur.execute(
+            "UPDATE users SET avatar=%s WHERE username=%s",
+            (url, session["user"])
+        )
 
-    con.commit()
-    con.close()
+        con.commit()
+        con.close()
 
-    return redirect(f"/profile/{session['user']}")
+        return redirect(f"/profile/{session['user']}")
 
+    except Exception as e:
+        return f"UPLOAD ERROR: {e}"
 
 # ======================
 # LEADERBOARD
