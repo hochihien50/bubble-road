@@ -1,7 +1,17 @@
+<h1>Create Post</h1>
 
-<h2>Create Post</h2>
-<form method="post">
-<input name="title" placeholder="Title"><br>
-<textarea name="content"></textarea><br>
-<button>Create</button>
+<form method="post" enctype="multipart/form-data">
+
+    <input name="title" placeholder="Title" required>
+    <br><br>
+
+    <textarea name="content" placeholder="Content" required></textarea>
+    <br><br>
+
+    <!-- NEW: image upload -->
+    <input type="file" name="image">
+
+    <br><br>
+
+    <button>Post 🚀</button>
 </form>
