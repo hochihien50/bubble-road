@@ -1,11 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ post[1] }}</title>
+</head>
+<body>
+
+<a href="/">← Home</a>
+
 <h1>{{ post[1] }}</h1>
 
 <p>{{ post[2] }}</p>
-<p>By {{ post[3] }} | ❤️ {{ post[4] }}</p>
 
-<!-- IMAGE POST -->
+<p>
+    By {{ post[3] }}
+    |
+    ❤️ {{ post[4] }}
+</p>
+
 {% if post[5] %}
-    <img src="/{{ post[5] }}" width="300">
+    <img src="{{ post[5] }}" width="300">
 {% endif %}
 
 <hr>
@@ -13,12 +26,24 @@
 <h3>Comments</h3>
 
 {% for c in comments %}
-    <p><b>{{c[2]}}</b>: {{c[3]}}</p>
+    <p><b>{{ c[2] }}</b>: {{ c[3] }}</p>
 {% endfor %}
 
 <hr>
 
 <form method="post">
-    <textarea name="content" placeholder="Write comment..." required></textarea>
-    <button>Comment</button>
+    <textarea
+        name="content"
+        placeholder="Write comment..."
+        required
+    ></textarea>
+
+    <br><br>
+
+    <button type="submit">
+        Comment
+    </button>
 </form>
+
+</body>
+</html>
