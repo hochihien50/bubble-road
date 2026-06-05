@@ -1,3 +1,10 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bubble Road</title>
+</head>
+<body>
+
 <h1>🫧 Bubble Road</h1>
 
 <!-- NAVBAR -->
@@ -20,18 +27,40 @@
 
 <!-- FEED -->
 {% for p in posts %}
+
 <div style="border:1px solid #ddd; padding:10px; margin-bottom:10px">
 
-    <h3><a href="/post/{{p[0]}}">{{p[1]}}</a></h3>
+    <h3>
+        <a href="/post/{{p[0]}}">
+            {{p[1]}}
+        </a>
+    </h3>
 
     <p>{{p[2]}}</p>
-    <small>By {{p[3]}} | ❤️ Votes: {{p[4]}}</small>
+
+    <!-- IMAGE -->
+    {% if p[5] %}
+        <img src="{{ p[5] }}" width="300">
+        <br><br>
+    {% endif %}
+
+    <small>
+        By {{p[3]}}
+        |
+        ❤️ Votes: {{p[4]}}
+    </small>
 
     <br><br>
 
     <form action="/vote/{{p[0]}}" method="post">
-        <button>⬆ Upvote</button>
+        <button type="submit">
+            ⬆ Upvote
+        </button>
     </form>
 
 </div>
+
 {% endfor %}
+
+</body>
+</html>
