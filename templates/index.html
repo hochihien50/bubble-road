@@ -1,92 +1,27 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Bubble Road</title>
-</head>
-<body>
+<h1>🔥 Bubble Road</h1>
 
-<h1>🌐 Bubble Road</h1>
-
-{% if user %}
-    <p>
-        Xin chào,
-        <a href="/profile/{{user}}">{{user}}</a>
-    </p>
-
-    <a href="/create">📝 Create Post</a> |
-    <a href="/leaderboard">🏆 Leaderboard</a> |
-    <a href="/logout">🚪 Logout</a>
-
-{% else %}
-
-    <a href="/login">🔑 Login</a> |
-    <a href="/register">🆕 Register</a>
-
-{% endif %}
+<a href="/">Home</a> |
+<a href="/create">Create Post</a> |
+<a href="/leaderboard">Leaderboard</a> |
+<a href="/profile/{{user}}">Profile</a> |
+<a href="/logout">Logout</a>
 
 <hr>
 
-{% if posts %}
+{% for p in posts %}
+<div style="border:1px solid #ddd; padding:10px; margin-bottom:10px">
 
-    {% for p in posts %}
+    <h3><a href="/post/{{p[0]}}">{{p[1]}}</a></h3>
 
-        <div style="
-            border:1px solid #ccc;
-            padding:10px;
-            margin-bottom:10px;
-        ">
+    <p>{{p[2]}}</p>
+    <small>By {{p[3]}} | ❤️ Votes: {{p[4]}}</small>
 
-            <h3>
-                <a href="/post/{{p[0]}}">
-                    {{p[1]}}
-                </a>
-            </h3>
+    <br><br>
 
-            <p>
-                👤 By
-                <a href="/profile/{{p[3]}}">
-                    {{p[3]}}
-                </a>
-            </p>
+    <!-- VOTE (POST FIXED - ANTI SPAM READY) -->
+    <form action="/vote/{{p[0]}}" method="post">
+        <button>⬆ Upvote</button>
+    </form>
 
-            <p>
-                👍 Votes: {{p[4]}}
-            </p>
-
-            {% if user %}
-            <form
-                action="/vote/{{p[0]}}"
-                method="POST"
-                style="display:inline;"
-            >
-                <button
-                    type="submit"
-                    onclick="this.disabled=true; this.form.submit();"
-                >
-                    ⬆ Vote
-                </button>
-            </form>
-            {% endif %}
-
-        </div>
-
-    {% endfor %}
-
-{% else %}
-
-    <h3>Chưa có bài viết nào.</h3>
-
-{% endif %}
-
-<script>
-if (window.history.replaceState) {
-    window.history.replaceState(
-        null,
-        null,
-        window.location.href
-    );
-}
-</script>
-
-</body>
-</html>
+</div>
+{% endfor %}
