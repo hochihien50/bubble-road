@@ -4,20 +4,20 @@ import os
 import bcrypt
 
 app = Flask(__name__)
-app.secret_key = "change-me"
+app.secret_key = os.getenv("SECRET_KEY", "change-me")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # ======================
-# DB CONNECT (SAFE)
+# DB CONNECT (SAFE + AUTO RECOVER)
 # ======================
 def get_db():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(DATABASE_URL, connect_timeout=5)
 
 
 # ======================
-# INIT DB SAFE (NO CRASH)
+# INIT DB (SAFE MIGRATION STYLE)
 # ======================
 def init_db():
     con = get_db()
@@ -85,6 +85,7 @@ def home():
     posts = cur.fetchall()
 
     con.close()
+
     return render_template("index.html", posts=posts, user=session.get("user"))
 
 
@@ -132,6 +133,7 @@ def login():
 
         cur.execute("SELECT password FROM users WHERE username=%s", (u,))
         data = cur.fetchone()
+
         con.close()
 
         if data and bcrypt.checkpw(p.encode(), data[0].encode()):
@@ -224,7 +226,7 @@ def post(pid):
 
 
 # ======================
-# VOTE (ANTI SPAM FIX)
+# VOTE (ANTI SPAM)
 # ======================
 @app.route("/vote/<int:pid>", methods=["POST"])
 def vote(pid):
@@ -265,7 +267,7 @@ def vote(pid):
 
 
 # ======================
-# PROFILE (FIX NO LEVEL ERROR)
+# PROFILE (SAFE FIX)
 # ======================
 @app.route("/profile/<user>")
 def profile(user):
@@ -277,7 +279,6 @@ def profile(user):
 
     con.close()
 
-    # FIX CRASH
     if not data:
         return "User not found"
 
@@ -289,7 +290,7 @@ def profile(user):
 
 
 # ======================
-# LEADERBOARD (SAFE)
+# LEADERBOARD
 # ======================
 @app.route("/leaderboard")
 def leaderboard():
@@ -302,6 +303,7 @@ def leaderboard():
         ORDER BY xp DESC
         LIMIT 10
     """)
+
     users = cur.fetchall()
 
     con.close()
@@ -310,7 +312,8 @@ def leaderboard():
 
 
 # ======================
-# RUN
+# RUN (RENDER READY)
 # ======================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
