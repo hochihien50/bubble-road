@@ -1,21 +1,140 @@
-<h1>Profile: {{ user }}</h1>
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ user }} Profile</title>
 
-{% if data[2] %}
-    <img src="{{ data[2] }}" width="120" style="border-radius:50%">
-{% else %}
-    <p>No avatar</p>
-{% endif %}
+    <style>
+        body{
+            background:#111;
+            color:white;
+            font-family:Arial;
+            text-align:center;
+        }
 
-<hr>
+        .card{
+            width:500px;
+            margin:auto;
+            margin-top:40px;
+            background:#1c1c1c;
+            padding:25px;
+            border-radius:15px;
+            box-shadow:0 0 15px rgba(0,0,0,.5);
+        }
 
-<p>XP: {{ data[0] }}</p>
-<p>Level: {{ data[1] }}</p>
+        .avatar{
+            width:150px;
+            height:150px;
 
-<hr>
+            object-fit:cover;
 
-<h3>Change Avatar</h3>
+            border-radius:50%;
 
-<form method="post" action="/upload_avatar" enctype="multipart/form-data">
-    <input type="file" name="avatar" required>
-    <button>Upload</button>
-</form>
+            border:5px solid gold;
+
+            box-shadow:
+                0 0 10px gold,
+                0 0 20px gold,
+                0 0 40px orange;
+        }
+
+        .xp{
+            color:#00ff88;
+            font-size:20px;
+            font-weight:bold;
+        }
+
+        .level{
+            color:gold;
+            font-size:22px;
+            font-weight:bold;
+        }
+
+        input[type=file]{
+            margin-top:10px;
+        }
+
+        button{
+            background:#4CAF50;
+            color:white;
+            border:none;
+            padding:10px 15px;
+            border-radius:8px;
+            cursor:pointer;
+        }
+
+        button:hover{
+            opacity:.85;
+        }
+
+        a{
+            color:#4da6ff;
+            text-decoration:none;
+        }
+
+        hr{
+            border:1px solid #333;
+        }
+    </style>
+
+</head>
+<body>
+
+<div class="card">
+
+    <h1>{{ user }}</h1>
+
+    {% if data[2] %}
+        <img src="{{ data[2] }}" class="avatar">
+    {% else %}
+        <img
+        src="https://via.placeholder.com/150"
+        class="avatar">
+    {% endif %}
+
+    <hr>
+
+    <p class="xp">
+        XP: {{ data[0] }}
+    </p>
+
+    <p class="level">
+        Level: {{ data[1] }}
+    </p>
+
+    <hr>
+
+    <h3>Change Avatar</h3>
+
+    <form
+        method="post"
+        action="/upload_avatar"
+        enctype="multipart/form-data"
+    >
+
+        <input
+            type="file"
+            name="avatar"
+            accept="image/*"
+            required
+        >
+
+        <br><br>
+
+        <button type="submit">
+            Upload Avatar
+        </button>
+
+    </form>
+
+    <br>
+
+    <a href="/">
+        ⬅ Back Home
+    </a>
+
+</div>
+
+</body>
+</html>
+```
