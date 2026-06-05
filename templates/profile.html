@@ -1,16 +1,15 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{user}}</title>
-</head>
-<body>
+<h1>👤 {{ user }}</h1>
 
-<a href="/">🏠 Home</a>
+<!-- AVATAR -->
+{% if data[2] %}
+    <img src="/{{ data[2] }}" width="120" style="border-radius:50%">
+{% else %}
+    <p>No avatar</p>
+{% endif %}
 
-<h1>👤 {{user}}</h1>
+<hr>
 
-<p>XP: {{data[0]}}</p>
-<p>Level: {{data[1]}}</p>
+<p>⭐ XP: {{ data[0] }}</p>
+<p>🏆 Level: {{ data[1] }}</p>
 
-</body>
-</html>
+<a href="/">Back</a>
