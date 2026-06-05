@@ -2,28 +2,34 @@ from flask import Flask, render_template, request, redirect, session
 import psycopg2
 import os
 import bcrypt
+from supabase import create_client
+import uuid
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 
 # ======================
-# DB CONNECT (SAFE + AUTO RECOVER)
+# DB CONNECT
 # ======================
 def get_db():
-    return psycopg2.connect(DATABASE_URL, connect_timeout=5)
+    return psycopg2.connect(DATABASE_URL)
 
 
 # ======================
-# INIT DB (SAFE MIGRATION STYLE)
+# INIT DB
 # ======================
 def init_db():
     con = get_db()
     cur = con.cursor()
 
-    # USERS
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -31,22 +37,22 @@ def init_db():
         password TEXT,
         xp INTEGER DEFAULT 0,
         level INTEGER DEFAULT 1,
-        role TEXT DEFAULT 'user'
+        role TEXT DEFAULT 'user',
+        avatar TEXT
     )
     """)
 
-    # POSTS
     cur.execute("""
     CREATE TABLE IF NOT EXISTS posts (
         id SERIAL PRIMARY KEY,
         title TEXT,
         content TEXT,
         author TEXT,
-        votes INTEGER DEFAULT 0
+        votes INTEGER DEFAULT 0,
+        image TEXT
     )
     """)
 
-    # COMMENTS
     cur.execute("""
     CREATE TABLE IF NOT EXISTS comments (
         id SERIAL PRIMARY KEY,
@@ -56,7 +62,6 @@ def init_db():
     )
     """)
 
-    # VOTES (ANTI SPAM)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS votes (
         id SERIAL PRIMARY KEY,
@@ -90,7 +95,7 @@ def home():
 
 
 # ======================
-# REGISTER
+# REGISTER (FIXED)
 # ======================
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -155,7 +160,7 @@ def logout():
 
 
 # ======================
-# CREATE POST
+# CREATE POST (SUPABASE IMAGE)
 # ======================
 @app.route("/create", methods=["GET", "POST"])
 def create():
@@ -166,17 +171,26 @@ def create():
         title = request.form["title"]
         content = request.form["content"]
 
+        file = request.files.get("image")
+        image_url = None
+
+        if file:
+            filename = f"{uuid.uuid4()}.png"
+
+            supabase.storage.from_("posts").upload(
+                filename,
+                file.read(),
+                {"content-type": file.content_type}
+            )
+
+            image_url = supabase.storage.from_("posts").get_public_url(filename)
+
         con = get_db()
         cur = con.cursor()
 
         cur.execute(
-            "INSERT INTO posts(title,content,author) VALUES(%s,%s,%s)",
-            (title, content, session["user"])
-        )
-
-        cur.execute(
-            "UPDATE users SET xp = xp + 10 WHERE username=%s",
-            (session["user"],)
+            "INSERT INTO posts(title,content,author,image) VALUES(%s,%s,%s,%s)",
+            (title, content, session["user"], image_url)
         )
 
         con.commit()
@@ -195,17 +209,11 @@ def post(pid):
     con = get_db()
     cur = con.cursor()
 
-    if request.method == "POST" and "user" in session:
+    if request.method == "POST":
         cur.execute(
             "INSERT INTO comments(post_id,author,content) VALUES(%s,%s,%s)",
-            (pid, session["user"], request.form["content"])
+            (pid, session.get("user"), request.form["content"])
         )
-
-        cur.execute(
-            "UPDATE users SET xp = xp + 2 WHERE username=%s",
-            (session["user"],)
-        )
-
         con.commit()
         return redirect(f"/post/{pid}")
 
@@ -217,16 +225,11 @@ def post(pid):
 
     con.close()
 
-    return render_template(
-        "post.html",
-        post=post_data,
-        comments=comments,
-        user=session.get("user")
-    )
+    return render_template("post.html", post=post_data, comments=comments, user=session.get("user"))
 
 
 # ======================
-# VOTE (ANTI SPAM)
+# VOTE
 # ======================
 @app.route("/vote/<int:pid>", methods=["POST"])
 def vote(pid):
@@ -236,29 +239,20 @@ def vote(pid):
     con = get_db()
     cur = con.cursor()
 
-    cur.execute(
-        "SELECT 1 FROM votes WHERE username=%s AND post_id=%s",
-        (session["user"], pid)
-    )
+    cur.execute("SELECT 1 FROM votes WHERE username=%s AND post_id=%s",
+                (session["user"], pid))
 
     if cur.fetchone():
         con.close()
         return redirect("/")
 
-    cur.execute(
-        "INSERT INTO votes(username,post_id) VALUES(%s,%s)",
-        (session["user"], pid)
-    )
+    cur.execute("INSERT INTO votes(username,post_id) VALUES(%s,%s)",
+                (session["user"], pid))
 
-    cur.execute(
-        "UPDATE posts SET votes = votes + 1 WHERE id=%s",
-        (pid,)
-    )
+    cur.execute("UPDATE posts SET votes=votes+1 WHERE id=%s", (pid,))
 
-    cur.execute(
-        "UPDATE users SET xp = xp + 1 WHERE username=%s",
-        (session["user"],)
-    )
+    cur.execute("UPDATE users SET xp=xp+1 WHERE username=%s",
+                (session["user"],))
 
     con.commit()
     con.close()
@@ -267,14 +261,14 @@ def vote(pid):
 
 
 # ======================
-# PROFILE (SAFE FIX)
+# PROFILE (WITH AVATAR)
 # ======================
 @app.route("/profile/<user>")
 def profile(user):
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("SELECT xp, level FROM users WHERE username=%s", (user,))
+    cur.execute("SELECT xp, level, avatar FROM users WHERE username=%s", (user,))
     data = cur.fetchone()
 
     con.close()
@@ -282,11 +276,41 @@ def profile(user):
     if not data:
         return "User not found"
 
-    return render_template(
-        "profile.html",
-        user=user,
-        data=data
+    return render_template("profile.html", user=user, data=data)
+
+
+# ======================
+# UPLOAD AVATAR (SUPABASE)
+# ======================
+@app.route("/upload_avatar", methods=["POST"])
+def upload_avatar():
+    if "user" not in session:
+        return redirect("/login")
+
+    file = request.files["avatar"]
+
+    filename = f"{session['user']}_{uuid.uuid4()}.png"
+
+    supabase.storage.from_("avatars").upload(
+        filename,
+        file.read(),
+        {"content-type": file.content_type}
     )
+
+    url = supabase.storage.from_("avatars").get_public_url(filename)
+
+    con = get_db()
+    cur = con.cursor()
+
+    cur.execute(
+        "UPDATE users SET avatar=%s WHERE username=%s",
+        (url, session["user"])
+    )
+
+    con.commit()
+    con.close()
+
+    return redirect(f"/profile/{session['user']}")
 
 
 # ======================
@@ -297,13 +321,7 @@ def leaderboard():
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("""
-        SELECT username, xp
-        FROM users
-        ORDER BY xp DESC
-        LIMIT 10
-    """)
-
+    cur.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 10")
     users = cur.fetchall()
 
     con.close()
@@ -312,8 +330,7 @@ def leaderboard():
 
 
 # ======================
-# RUN (RENDER READY)
+# RUN
 # ======================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
