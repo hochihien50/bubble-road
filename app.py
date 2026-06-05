@@ -95,7 +95,7 @@ def home():
 
 
 # ======================
-# REGISTER (FIXED)
+# REGISTER (FIXED - NO AVATAR UPLOAD)
 # ======================
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -175,7 +175,7 @@ def create():
         image_url = None
 
         if file:
-            filename = f"{uuid.uuid4()}.png"
+            filename = f"post_{uuid.uuid4()}.png"
 
             supabase.storage.from_("posts").upload(
                 filename,
@@ -202,7 +202,7 @@ def create():
 
 
 # ======================
-# POST + COMMENT
+# POST DETAIL + COMMENT
 # ======================
 @app.route("/post/<int:pid>", methods=["GET", "POST"])
 def post(pid):
@@ -225,11 +225,16 @@ def post(pid):
 
     con.close()
 
-    return render_template("post.html", post=post_data, comments=comments, user=session.get("user"))
+    return render_template(
+        "post.html",
+        post=post_data,
+        comments=comments,
+        user=session.get("user")
+    )
 
 
 # ======================
-# VOTE
+# VOTE (ANTI SPAM)
 # ======================
 @app.route("/vote/<int:pid>", methods=["POST"])
 def vote(pid):
@@ -239,20 +244,29 @@ def vote(pid):
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("SELECT 1 FROM votes WHERE username=%s AND post_id=%s",
-                (session["user"], pid))
+    cur.execute(
+        "SELECT 1 FROM votes WHERE username=%s AND post_id=%s",
+        (session["user"], pid)
+    )
 
     if cur.fetchone():
         con.close()
         return redirect("/")
 
-    cur.execute("INSERT INTO votes(username,post_id) VALUES(%s,%s)",
-                (session["user"], pid))
+    cur.execute(
+        "INSERT INTO votes(username,post_id) VALUES(%s,%s)",
+        (session["user"], pid)
+    )
 
-    cur.execute("UPDATE posts SET votes=votes+1 WHERE id=%s", (pid,))
+    cur.execute(
+        "UPDATE posts SET votes=votes+1 WHERE id=%s",
+        (pid,)
+    )
 
-    cur.execute("UPDATE users SET xp=xp+1 WHERE username=%s",
-                (session["user"],))
+    cur.execute(
+        "UPDATE users SET xp=xp+1 WHERE username=%s",
+        (session["user"],)
+    )
 
     con.commit()
     con.close()
@@ -261,7 +275,7 @@ def vote(pid):
 
 
 # ======================
-# PROFILE (WITH AVATAR)
+# PROFILE + AVATAR
 # ======================
 @app.route("/profile/<user>")
 def profile(user):
@@ -280,7 +294,7 @@ def profile(user):
 
 
 # ======================
-# UPLOAD AVATAR (SUPABASE)
+# UPLOAD AVATAR (SUPABASE STORAGE)
 # ======================
 @app.route("/upload_avatar", methods=["POST"])
 def upload_avatar():
@@ -289,7 +303,7 @@ def upload_avatar():
 
     file = request.files["avatar"]
 
-    filename = f"{session['user']}_{uuid.uuid4()}.png"
+    filename = f"avatar_{session['user']}_{uuid.uuid4()}.png"
 
     supabase.storage.from_("avatars").upload(
         filename,
@@ -321,7 +335,13 @@ def leaderboard():
     con = get_db()
     cur = con.cursor()
 
-    cur.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 10")
+    cur.execute("""
+        SELECT username, xp
+        FROM users
+        ORDER BY xp DESC
+        LIMIT 10
+    """)
+
     users = cur.fetchall()
 
     con.close()
@@ -333,4 +353,5 @@ def leaderboard():
 # RUN
 # ======================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
