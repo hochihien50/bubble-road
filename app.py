@@ -227,10 +227,28 @@ def post(pid):
     cur = con.cursor()
 
     if request.method == "POST":
+        content = request.form["content"]
+
+        file = request.files.get("image")
+        image_url = None
+
+        if file:
+            filename = f"comment_{uuid.uuid4()}.png"
+
+            if supabase:
+                supabase.storage.from_("posts").upload(
+                    filename,
+                    file.read(),
+                    {"content-type": file.content_type}
+                )
+
+                image_url = supabase.storage.from_("posts").get_public_url(filename)
+
         cur.execute(
-            "INSERT INTO comments(post_id,author,content) VALUES(%s,%s,%s)",
-            (pid, session.get("user"), request.form["content"])
+            "INSERT INTO comments(post_id,author,content,image) VALUES(%s,%s,%s,%s)",
+            (pid, session.get("user"), content, image_url)
         )
+
         con.commit()
         return redirect(f"/post/{pid}")
 
