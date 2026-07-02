@@ -1,0 +1,21 @@
+<h1>Search: "{{ q }}"</h1>
+
+<a href="/">← Home</a>
+
+<hr>
+
+<h3>👤 Users</h3>
+{% for u in users %}
+    <p>
+        <a href="/profile/{{ u[0] }}">{{ u[0] }}</a>
+    </p>
+{% endfor %}
+
+<hr>
+
+<h3>📝 Posts</h3>
+{% for p in posts %}
+    <div>
+        <a href="/post/{{ p[0] }}">{{ p[1] }}</a>
+    </div>
+{% endfor %}
