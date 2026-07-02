@@ -6,8 +6,13 @@
 
 {% for u in users %}
     <div>
-        <h3>#{{ loop.index }} {{ u[0] }}</h3>
+        <h3>
+            #{{ loop.index }}
+            <a href="/profile/{{ u[0] }}">{{ u[0] }}</a>
+        </h3>
+
         <p>XP: {{ u[1] }}</p>
     </div>
+
     <hr>
 {% endfor %}
