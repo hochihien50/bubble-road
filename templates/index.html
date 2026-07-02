@@ -7,6 +7,14 @@
 
 <h1>🫧 Bubble Road</h1>
 
+<!-- SEARCH BAR -->
+<form action="/search" method="get">
+    <input name="q" placeholder="Search users or posts...">
+    <button type="submit">Search</button>
+</form>
+
+<hr>
+
 <!-- NAVBAR -->
 <a href="/">Home</a> |
 
@@ -16,7 +24,7 @@
     <a href="/profile/{{user}}">Profile</a> |
     <a href="/logout">Logout</a> |
 
-    <b>👤 {{user}}</b>
+    <b>👤 <a href="/profile/{{user}}">{{user}}</a></b>
 
 {% else %}
     <a href="/login">Login</a> |
@@ -45,7 +53,10 @@
     {% endif %}
 
     <small>
-        By {{p[3]}}
+        By 
+        <a href="/profile/{{p[3]}}">
+            {{p[3]}}
+        </a>
         |
         ❤️ Votes: {{p[4]}}
     </small>
@@ -53,9 +64,7 @@
     <br><br>
 
     <form action="/vote/{{p[0]}}" method="post">
-        <button type="submit">
-            ⬆ Upvote
-        </button>
+        <button type="submit">⬆ Upvote</button>
     </form>
 
 </div>
