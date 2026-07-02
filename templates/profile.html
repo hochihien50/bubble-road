@@ -6,6 +6,7 @@
 
 <hr>
 
+<!-- AVATAR -->
 {% if data[2] %}
     <img src="{{ data[2] }}"
          width="120"
@@ -19,6 +20,7 @@
 
 <hr>
 
+<!-- UPLOAD AVATAR -->
 <form method="post"
       action="/upload_avatar"
       enctype="multipart/form-data">
@@ -27,3 +29,28 @@
     <button>Upload Avatar</button>
 
 </form>
+
+<hr>
+
+<!-- 🔥 NEW: ACTIVITY POSTS -->
+<h2>📝 Posts Activity</h2>
+
+{% if posts %}
+    {% for p in posts %}
+        <div style="border:1px solid #ddd; padding:10px; margin-bottom:10px">
+
+            <h3>
+                <a href="/post/{{ p[0] }}">
+                    {{ p[1] }}
+                </a>
+            </h3>
+
+            <p>{{ p[2] }}</p>
+
+            <small>❤️ {{ p[3] }} likes</small>
+
+        </div>
+    {% endfor %}
+{% else %}
+    <p>No posts yet 😢</p>
+{% endif %}
