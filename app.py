@@ -356,15 +356,31 @@ def profile(user):
     con = get_db()
     cur = con.cursor()
 
+    # user info
     cur.execute("SELECT xp, level, avatar FROM users WHERE username=%s", (user,))
     data = cur.fetchone()
 
-    con.close()
-
     if not data:
+        con.close()
         return "User not found"
 
-    return render_template("profile.html", user=user, data=data)
+    # posts của user (activity chính)
+    cur.execute("""
+        SELECT id, title, content, votes
+        FROM posts
+        WHERE author=%s
+        ORDER BY id DESC
+    """, (user,))
+    posts = cur.fetchall()
+
+    con.close()
+
+    return render_template(
+        "profile.html",
+        user=user,
+        data=data,
+        posts=posts
+    )
 
 
 # ======================
