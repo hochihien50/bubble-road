@@ -1,0 +1,15 @@
+<h1>❤️ People who liked this post</h1>
+
+<a href="/post/{{ pid }}">← Back</a>
+
+<hr>
+
+{% if users %}
+    {% for u in users %}
+        <p>
+            <a href="/profile/{{ u[0] }}">{{ u[0] }}</a>
+        </p>
+    {% endfor %}
+{% else %}
+    <p>No likes yet 😢</p>
+{% endif %}
