@@ -105,7 +105,32 @@ def home():
 
     return render_template("index.html", posts=posts, user=session.get("user"))
 
+@app.route("/search")
+def search():
+    q = request.args.get("q", "")
 
+    con = get_db()
+    cur = con.cursor()
+
+    # search posts
+    cur.execute("""
+        SELECT * FROM posts
+        WHERE title ILIKE %s
+        ORDER BY id DESC
+    """, (f"%{q}%",))
+    posts = cur.fetchall()
+
+    # search users
+    cur.execute("""
+        SELECT username FROM users
+        WHERE username ILIKE %s
+        ORDER BY username
+    """, (f"%{q}%",))
+    users = cur.fetchall()
+
+    con.close()
+
+    return render_template("search.html", posts=posts, users=users, q=q)
 # ======================
 # REGISTER (FIXED - NO AVATAR UPLOAD)
 # ======================
