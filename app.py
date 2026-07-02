@@ -333,7 +333,21 @@ def vote(pid):
 
     return redirect("/")
 
+@app.route("/post/<int:pid>/likes")
+def post_likes(pid):
+    con = get_db()
+    cur = con.cursor()
 
+    cur.execute("""
+        SELECT username
+        FROM votes
+        WHERE post_id=%s
+    """, (pid,))
+
+    users = cur.fetchall()
+    con.close()
+
+    return render_template("likes.html", users=users, pid=pid)
 # ======================
 # PROFILE + AVATAR
 # ======================
