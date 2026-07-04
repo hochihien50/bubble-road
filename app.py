@@ -200,6 +200,9 @@ def logout():
 # ======================
 # CREATE POST (SUPABASE IMAGE)
 # ======================
+# ======================
+# CREATE POST (IMAGE + VIDEO)
+# ======================
 @app.route("/create", methods=["GET", "POST"])
 def create():
     if "user" not in session:
@@ -209,30 +212,56 @@ def create():
         title = request.form["title"]
         content = request.form["content"]
 
-        file = request.files.get("image")
-        image_url = None
+        image = request.files.get("image")
+        video = request.files.get("video")
 
-        if file:
+        image_url = None
+        video_url = None
+
+        # Upload image
+        if image:
             filename = f"post_{uuid.uuid4()}.png"
 
             supabase.storage.from_("posts").upload(
                 filename,
-                file.read(),
-                {"content-type": file.content_type}
+                image.read(),
+                {"content-type": image.content_type}
             )
 
             image_url = supabase.storage.from_("posts").get_public_url(filename)
+
+        # Upload video
+        if video:
+            ext = video.filename.split(".")[-1]
+            filename = f"video_{uuid.uuid4()}.{ext}"
+
+            supabase.storage.from_("posts").upload(
+                filename,
+                video.read(),
+                {"content-type": video.content_type}
+            )
+
+            video_url = supabase.storage.from_("posts").get_public_url(filename)
 
         con = get_db()
         cur = con.cursor()
 
         cur.execute(
-            "INSERT INTO posts(title,content,author,image) VALUES(%s,%s,%s,%s)",
-            (title, content, session["user"], image_url)
+            """
+            INSERT INTO posts(title,content,author,image,video)
+            VALUES(%s,%s,%s,%s,%s)
+            """,
+            (
+                title,
+                content,
+                session["user"],
+                image_url,
+                video_url
+            )
         )
 
         cur.execute(
-            "UPDATE users SET xp = xp + 5 WHERE username=%s",
+            "UPDATE users SET xp=xp+5 WHERE username=%s",
             (session["user"],)
         )
 
@@ -242,7 +271,6 @@ def create():
         return redirect("/")
 
     return render_template("create.html")
-
 
 # ======================
 # POST DETAIL + COMMENT
