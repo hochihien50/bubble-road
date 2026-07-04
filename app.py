@@ -55,14 +55,15 @@ def init_db():
     """)
 
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS posts (
-        id SERIAL PRIMARY KEY,
-        title TEXT,
-        content TEXT,
-        author TEXT,
-        votes INTEGER DEFAULT 0,
-        image TEXT
-    )
+CREATE TABLE IF NOT EXISTS posts (
+    id SERIAL PRIMARY KEY,
+    title TEXT,
+    content TEXT,
+    author TEXT,
+    votes INTEGER DEFAULT 0,
+    image TEXT,
+    video TEXT
+)
     """)
 
     cur.execute("""
