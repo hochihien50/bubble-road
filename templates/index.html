@@ -52,13 +52,24 @@
         <br><br>
     {% endif %}
 
+    <!-- VIDEO -->
+    {% if p[6] %}
+        <video width="300" controls>
+            <source src="{{ p[6] }}">
+            Your browser does not support the video tag.
+        </video>
+        <br><br>
+    {% endif %}
+
     <small>
-        By 
+        By
         <a href="/profile/{{p[3]}}">
             {{p[3]}}
         </a>
         |
         ❤️ Votes: {{p[4]}}
+        |
+        <a href="/post/{{p[0]}}/likes">Xem người đã thích</a>
     </small>
 
     <br><br>
